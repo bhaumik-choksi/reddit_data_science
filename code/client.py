@@ -2,6 +2,10 @@ import praw
 import numpy as np
 from matplotlib import pyplot as plt
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import sys
+import codecs
+if sys.stdout.encoding != 'UTF-8':
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
 # Auth
 reddit = praw.Reddit(client_id='GKG50iWjxkkcew',
@@ -24,9 +28,11 @@ for top_post in tops:
 
     # Browsing comments
     all_comments = top_post.comments.list()
+
     for comment in all_comments[:50]:
         comments.append(comment.body)
-
+        # added this just for testing utf-8
+        print (comment.body)
     pos_sent = []
     neg_sent = []
     comp_sent = []
