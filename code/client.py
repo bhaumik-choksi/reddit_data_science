@@ -1,12 +1,13 @@
 import praw
 import numpy as np
 from matplotlib import pyplot as plt
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from collections import Counter
-from nltk.tokenize import word_tokenize
+from stop_words import get_stop_words
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk.tokenize import word_tokenize, sent_tokenize, WhitespaceTokenizer
 from nltk.corpus import stopwords
 from nltk import bigrams
-import sqlite3
 import sys
 import codecs
 import re
@@ -14,111 +15,183 @@ import string
 if sys.stdout.encoding != 'UTF-8':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 # import nltk
-# nltk.download('stopwords')
+# nltk.download()
 
 
-############ Creates objects for emoji tokenizing ###########
-emoticons_str = r"""
+def get_comments(subreddit):
+    reddit = praw.Reddit(client_id='GKG50iWjxkkcew',
+                         client_secret="6OKCI0V-OzGp5kx-fs7HN2QA_vM",
+                         password='10488724593163d6045e1f53b56543f7',
+                         user_agent='USERAGENT',
+                         username='throwaway2244561')
+
+    # Selecting the subreddit
+    subreddit = reddit.subreddit(subreddit)
+    top_posts = subreddit.top(limit=10)
+    # Extract comments to list
+    all_comments = []
+    for top_post in top_posts:
+        title = top_post.title
+        # print (title)
+        comments = top_post.comments.list()
+        for comment in comments[1:101]:
+            try:
+                all_comments.append(comment.body.lower())
+            except AttributeError as e:
+                pass
+    return all_comments
+
+
+
+def preprocess(s, lowercase=False):
+    emoticons_str = r"""
     (?:
         [:=;] # Eyes
         [oO\-]? # Nose (optional)
         [D\)\]\(\]/\\OpP] # Mouth
     )"""
-regex_str = [
-    emoticons_str,
-    r'<[^>]+>', # HTML tags
-    r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+', # URLs
- 
-    r'(?:(?:\d+,?)+(?:\.?\d+)?)', # numbers
-    r"(?:[a-z][a-z'\-_]+[a-z])", # words with - and '
-    r'(?:[\w_]+)', # other words
-    r'(?:\S)' # anything else
-]
-tokens_re = re.compile(r'('+'|'.join(regex_str)+')', re.VERBOSE | re.IGNORECASE)
-emoticon_re = re.compile(r'^'+emoticons_str+'$', re.VERBOSE | re.IGNORECASE)
-
-def tokenize(s):
-    return tokens_re.findall(s)
-
-def preprocess(s, lowercase=False):
-    tokens = tokenize(s)
+    regex_str = [
+        emoticons_str,
+        r'<[^>]+>', # HTML tags
+        r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+', # URLs
+     
+        r'(?:(?:\d+,?)+(?:\.?\d+)?)', # numbers
+        r"(?:[a-z][a-z'\-_]+[a-z])", # words with - and '
+        r'(?:[\w_]+)', # other words
+        r'(?:\S)' # anything else
+    ]
+    tokens_re = re.compile(r'('+'|'.join(regex_str)+')', re.VERBOSE | re.IGNORECASE)
+    emoticon_re = re.compile(r'^'+emoticons_str+'$', re.VERBOSE | re.IGNORECASE)
+    tokens = tokens_re.findall(s)
     if lowercase:
         tokens = [token if emoticon_re.search(token) else token.lower() for token in tokens]
     return tokens
 
-def tokenize_comments(comments):
-    tokenized_comments = []
+
+def tokenize_sent(comments):
+    sent_tokens = []
     for comment in comments:
-        tokenized_comment = preprocess(comment)
-        tokenized_comments.append(tokenized_comment)
-    return tokenized_comments
+        sents = sent_tokenize(comment)
+        for s in sents:
+            sent_tokens.append(s)
+    return sent_tokens
 
-def count_tokens(tokenized_comments):
-    #gets list of punctuation
-    punctuation = list(string.punctuation)
-    #gets list of stopwords, appends punctuation
-    stop = stopwords.words('english') + punctuation + ['’' , 'nbsp']
-    #counts number of tokens in all comments
-    count_all = Counter()
-    for comment in tokenized_comments:
-        tokens_all = []
-        for token in comment:
-            if token not in stop:
-                tokens_all.append(token)
-        count_all.update(tokens_all)
-    return count_all
 
-def get_bigram(tokens):
-    #gets list of punctuation
-    punctuation = list(string.punctuation)
-    #gets list of stopwords, appends punctuation
-    stop = stopwords.words('english') + punctuation + ['’' , 'nbsp']
-    terms_stop = [term for term in tokens if term not in stop]
-    terms_bigram = bigrams(terms_stop)
-    return terms_bigram
 
-# Auth
-print ("authing...")
-reddit = praw.Reddit(client_id='GKG50iWjxkkcew',
-                     client_secret="6OKCI0V-OzGp5kx-fs7HN2QA_vM",
-                     password='10488724593163d6045e1f53b56543f7',
-                     user_agent='USERAGENT',
-                     username='throwaway2244561')
+def tokenize_words(comments):
+    word_tokens = []
+    for comment in comments:
+        words = preprocess(comment)
+        for w in words:
+            word_tokens.append(w)
+    return word_tokens
 
-# Selecting the subreddit
-print ("Extracting top reddit posts...")
+
+def filter_sent(sentence_list):
+    stop_words = list(get_stop_words('en'))         #About 900 stopwords
+    nltk_words = list(stopwords.words('english') + list(string.punctuation)+[ '’' ,'nbsp'])  #About 150 stopwords
+    stop_words.extend(nltk_words)
+    filtered_sentences = []
+    for sent in sentence_list:
+        sent = sent.lower()
+        word_tokens = preprocess(sent)
+        sentence = []
+        for w in word_tokens:
+            if w not in stop_words:
+                sentence.append(w)
+        filtered_sentences.append(sentence)
+    return filtered_sentences
+
+
+
+def filter_words(word_tokens):
+    stop_words = list(get_stop_words('en'))         #About 900 stopwords
+    nltk_words = list(stopwords.words('english') + list(string.punctuation)+[ '’' ,'nbsp'])  #About 150 stopwords
+    stop_words.extend(nltk_words)
+    output = []
+    for w in word_tokens:
+        w = w.lower()
+        if w not in stop_words:
+            output.append(w)
+    return output
+
+
+def sent_stemmer(sents):
+    ps = PorterStemmer()
+    stem_sent = []
+    for sent in sents:
+        temp = []
+        for word in sent:
+            stem_word = ps.stem(word)
+            temp.append(stem_word)
+        stem_sent.append(temp)
+    stem_sent = list(filter(None, stem_sent))
+    return stem_sent
+
+
+def word_stemmer(words):
+    ps = PorterStemmer()
+    stem_words = []
+    for word in words:
+        stem_word = ps.stem(word)
+        stem_words.append(stem_word)
+    return stem_words
+
+
+def count_tokens(words):
+    count = Counter()
+    count.update(words)
+    return count
+
+
+###################   Pre-Processing   #############################
+def word_preprocess(comments):
+    word_list = tokenize_words(comments)
+    clean_words = filter_words(word_list)
+    stem_words = word_stemmer(clean_words)
+    return stem_words
+
+
+def sent_preprocess(comments):
+    sent_list = tokenize_sent(comments)
+    clean_sent = filter_sent(sent_list)
+    stem_sent = sent_stemmer(clean_sent)
+    return stem_sent
+
+
+
+
+# if __name__ == "__main__":
 subreddit = "politics"
-subreddit = reddit.subreddit(subreddit)
-top_posts = subreddit.top(limit=10)
-
-# Extract comments to list
-print ("Extracting Comments...")
-all_comments = []
-for top_post in top_posts:
-    title = top_post.title
-    # print (title)
-    comments = top_post.comments.list()
-    for comment in comments[:100]:
-        try:
-            all_comments.append(comment.body.lower())
-        except AttributeError as e:
-            pass
-
-
-# print (all_comments[1:11])
-# preprocessing
-print ("begining tokenizing...")
-tokenized_comments = tokenize_comments(all_comments)
-print (tokenized_comments[1])
-token_count = count_tokens(tokenized_comments)
-top_words = token_count.most_common(10)
+comments = get_comments(subreddit)
+words = word_preprocess(comments)
+sents = sent_preprocess(comments)
+bag_of_words = count_tokens(words)
+top_words = bag_of_words.most_common(10)
 print(top_words)
 
-# bigrams = get_bigram(tokenized_comments)
-# print (bigrams)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####################   Prototype code    ############################
 
     # pos_sent = []
     # neg_sent = []
