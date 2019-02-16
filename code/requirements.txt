@@ -1,0 +1,5 @@
+stop_words==2018.7.23
+praw==6.1.1
+matplotlib==2.2.2
+nltk==3.3
+numpy==1.14.3
