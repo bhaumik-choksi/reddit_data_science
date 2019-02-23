@@ -172,8 +172,13 @@ comments = get_comments(subreddit)
 words = word_preprocess(comments)
 sents = sent_preprocess(comments)
 list_of_frequencies = list([k,v] for k,v in count_tokens(words).items())
-list_of_frequencies.sort(key=(lambda x: x[1]), reverse=True)
-print(list_of_frequencies[:10])
+list_of_frequencies = list_of_frequencies.sort(key=(lambda x: x[1]), reverse=True)
+# print(list_of_frequencies[:10])
+print ('starting')
+with open('reddit_words.txt','wb') as w:
+	for word in words:
+		w.write(str(word).encode('utf8')+b'\n')
+print ('Done')
 
 
 
