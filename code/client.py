@@ -174,11 +174,20 @@ sents = sent_preprocess(comments)
 list_of_frequencies = list([k,v] for k,v in count_tokens(words).items())
 list_of_frequencies = list_of_frequencies.sort(key=(lambda x: x[1]), reverse=True)
 # print(list_of_frequencies[:10])
+
+######
 print ('starting')
 with open('reddit_words.txt','wb') as w:
 	for word in words:
 		w.write(str(word).encode('utf8')+b'\n')
 print ('Done')
+
+
+reddit_words = []
+with open('reddit_words.txt', 'r') as r:
+	for line in r:
+		reddit_words.append(line.strip('\n'))
+print(reddit_words)
 
 
 
