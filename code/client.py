@@ -1,5 +1,6 @@
 import praw
 import heapq
+import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 from collections import Counter
@@ -10,6 +11,7 @@ from nltk.tokenize import word_tokenize, sent_tokenize, WhitespaceTokenizer
 from nltk.corpus import stopwords
 from nltk import bigrams
 import sys
+from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 import codecs
 import re
 import string
@@ -179,7 +181,7 @@ list_of_frequencies = list_of_frequencies.sort(key=(lambda x: x[1]), reverse=Tru
 print ('starting')
 with open('reddit_words.txt','wb') as w:
 	for word in words:
-		w.write(str(word).encode('utf8')+b'\n')
+		w.write(str(word).encode('utf-8')+b'\n')
 print ('Done')
 
 
@@ -188,6 +190,11 @@ with open('reddit_words.txt', 'r') as r:
 	for line in r:
 		reddit_words.append(line.strip('\n'))
 print(reddit_words)
+text = ' '.join(map(str,reddit_words) )
+wordcloud = WordCloud(max_font_size=50, background_color="black", max_words=40, colormap="nipy_spectral", regexp=r"\w[\w']+").generate(text)
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis("off")
+plt.show()
 
 
 
