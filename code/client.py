@@ -1,22 +1,25 @@
 import praw
-import heapq
+import string
 import pandas as pd
 import numpy as np
-from matplotlib import pyplot as plt
-from collections import Counter
-from stop_words import get_stop_words
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from nltk.stem import PorterStemmer, WordNetLemmatizer
-from nltk.tokenize import word_tokenize, sent_tokenize, WhitespaceTokenizer
+#preprocessing
+from nltk.tokenize import sent_tokenize
+from nltk.tokenize import RegexpTokenizer
+from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
-from nltk import bigrams
-import sys
+from stop_words import get_stop_words
+#word cloud libs
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+from matplotlib import pyplot as plt
+#extractive text summarizing lib
+from gensim.summarization import summarize
+#utf stuff
+import sys
 import codecs
-import re
-import string
 if sys.stdout.encoding != 'UTF-8':
 	sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+
 # import nltk
 # nltk.download()
 
@@ -46,29 +49,7 @@ def get_comments(subreddit):
 
 
 
-def preprocess(s, lowercase=False):
-	emoticons_str = r"""
-	(?:
-		[:=;] # Eyes
-		[oO\-]? # Nose (optional)
-		[D\)\]\(\]/\\OpP] # Mouth
-	)"""
-	regex_str = [
-		emoticons_str,
-		r'<[^>]+>', # HTML tags
-		r'http[s]?://(?:[a-z]|[0-9]|[$-_@.&amp;+]|[!*\(\),]|(?:%[0-9a-f][0-9a-f]))+', # URLs
-	 
-		r'(?:(?:\d+,?)+(?:\.?\d+)?)', # numbers
-		r"(?:[a-z][a-z'\-_]+[a-z])", # words with - and '
-		r'(?:[\w_]+)', # other words
-		r'(?:\S)' # anything else
-	]
-	tokens_re = re.compile(r'('+'|'.join(regex_str)+')', re.VERBOSE | re.IGNORECASE)
-	emoticon_re = re.compile(r'^'+emoticons_str+'$', re.VERBOSE | re.IGNORECASE)
-	tokens = tokens_re.findall(s)
-	if lowercase:
-		tokens = [token if emoticon_re.search(token) else token.lower() for token in tokens]
-	return tokens
+
 
 
 def tokenize_sent(comments):
@@ -82,22 +63,26 @@ def tokenize_sent(comments):
 
 
 def tokenize_words(comments):
-	word_tokens = []
+	tokenizer = RegexpTokenizer(r'\w+')
+	comment_tokens = []
 	for comment in comments:
-		words = preprocess(comment)
-		for w in words:
-			word_tokens.append(w)
+		tokens = tokenizer.tokenize(comment.lower())
+		comment_tokens.append(tokens)
+	word_tokens = []
+	for comment in comment_tokens:
+	    for word in comment:
+	        word_tokens.append(word)
 	return word_tokens
 
 
 def filter_sent(sentence_list):
+	tokenizer = RegexpTokenizer(r'\w+')
 	stop_words = list(get_stop_words('en'))         #About 900 stopwords
-	nltk_words = list(stopwords.words('english') + list(string.punctuation)+[ '’' ,'nbsp'])  #About 150 stopwords
+	nltk_words = list(stopwords.words('english') + list(string.punctuation)+[ '’', '“','”' ,'nbsp','https','www','com'])  #About 150 stopwords
 	stop_words.extend(nltk_words)
 	filtered_sentences = []
 	for sent in sentence_list:
-		sent = sent.lower()
-		word_tokens = preprocess(sent)
+		word_tokens = tokenizer.tokenize(sent.lower())
 		sentence = []
 		for w in word_tokens:
 			if w not in stop_words:
@@ -109,7 +94,7 @@ def filter_sent(sentence_list):
 
 def filter_words(word_tokens):
 	stop_words = list(get_stop_words('en'))         #About 900 stopwords
-	nltk_words = list(stopwords.words('english') + list(string.punctuation)+[ '’', '“','”' ,'nbsp'])  #About 150 stopwords
+	nltk_words = list(stopwords.words('english') + list(string.punctuation)+[ '’', '“','”' ,'nbsp','https','www','com'])  #About 150 stopwords
 	stop_words.extend(nltk_words)
 	output = []
 	for w in word_tokens:
@@ -175,6 +160,112 @@ words = word_preprocess(comments)
 sents = sent_preprocess(comments)
 list_of_frequencies = list([k,v] for k,v in count_tokens(words).items())
 list_of_frequencies = list_of_frequencies.sort(key=(lambda x: x[1]), reverse=True)
+
+
+# summarize(comments, split=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# dictionary = corpora.Dictionary(sents)
+# print(dictionary)
+# print("-------")
+# print(dictionary.token2id)
+# print("-------")
+# bow_corpus = [dictionary.doc2bow(text) for text in sents]
+
+
+
+
+# # train the model
+# tfidf = models.TfidfModel(bow_corpus)
+# # transform the "system minors" string
+# tfidf[dictionary.doc2bow("system minors".lower().split())]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # print(list_of_frequencies[:10])
 
 ######
@@ -184,6 +275,11 @@ with open('reddit_words.txt','wb') as w:
 		w.write(str(word).encode('utf-8')+b'\n')
 print ('Done')
 
+# print ('starting')
+# with open('reddit_sent.txt','wb') as w:
+# 	for sent in sents:
+# 		w.write(str(sent).encode('utf8')+b'\n')
+# print ('Done')
 
 reddit_words = []
 with open('reddit_words.txt', 'r') as r:
@@ -195,6 +291,14 @@ wordcloud = WordCloud(max_font_size=50, background_color="black", max_words=40, 
 plt.imshow(wordcloud, interpolation='bilinear')
 plt.axis("off")
 plt.show()
+
+
+
+# reddit_words = []
+# with open('reddit_words.txt', 'r') as r:
+# 	for line in r:
+# 		reddit_words.append(line.strip('\n'))
+# print(reddit_words)
 
 
 
